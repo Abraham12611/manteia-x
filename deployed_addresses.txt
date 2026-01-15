@@ -1,0 +1,19 @@
+
+??? MockUSDC 
+deployed to: 0x47C78C
+14d8c2F8423F4e79b49ec
+86Cf87ABE7cf7
+??? Verifier 
+deployed to: 0x15F8ef
+fc585d02F9e6c944b050d
+3c3B9d9EC44Ad
+??? LendingVault 
+deployed to: 0xfd72Af
+cDB5Eb0C3a90A28A5FCd3
+BA8498fb5bD8A
+??? ManteiaFactory 
+deployed to: 0x4cECF6
+bfD1f5d382524FaBf92f3
+9D6682117B41F
+
+
