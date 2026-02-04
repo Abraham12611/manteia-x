@@ -68,12 +68,12 @@ export function RecentActivity() {
             {transactions.map((tx) => (
                 <div
                     key={tx.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[#252A36]/50 hover:bg-[#252A36] transition-colors border border-transparent hover:border-[#252931]"
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#252A36]/50 hover:bg-[#252A36] transition-colors border border-transparent hover:border-[#252931] group"
                 >
                     <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'loan_request' || tx.type === 'withdrawal'
-                                ? 'bg-red-500/10 text-red-500'
-                                : 'bg-[#00D4AA]/10 text-[#00D4AA]'
+                            ? 'bg-red-500/10 text-red-500'
+                            : 'bg-[#00D4AA]/10 text-[#00D4AA]'
                             }`}>
                             {tx.type === 'loan_request' || tx.type === 'withdrawal' ? (
                                 <ArrowUpRight weight="bold" />
@@ -82,8 +82,19 @@ export function RecentActivity() {
                             )}
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-white capitalize">
+                            <p className="text-sm font-medium text-white capitalize flex items-center gap-2">
                                 {tx.type.replace('_', ' ')}
+                                {tx.tx_hash && (
+                                    <a
+                                        href={`https://sepolia.mantlescan.xyz/tx/${tx.tx_hash}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[#6B7280] hover:text-[#00D4AA] opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="View on Explorer"
+                                    >
+                                        <ArrowUpRight size={12} weight="bold" />
+                                    </a>
+                                )}
                             </p>
                             <p className="text-xs text-[#9CA3AF]">
                                 {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true })}
@@ -92,14 +103,14 @@ export function RecentActivity() {
                     </div>
                     <div className="text-right">
                         <p className={`text-sm font-bold ${tx.type === 'loan_request' || tx.type === 'withdrawal'
-                                ? 'text-white'
-                                : 'text-[#00D4AA]'
+                            ? 'text-white'
+                            : 'text-[#00D4AA]'
                             }`}>
                             {tx.type === 'loan_request' || tx.type === 'withdrawal' ? '-' : '+'}
                             ${tx.amount.toLocaleString()}
                         </p>
                         <p className={`text-[10px] uppercase font-bold tracking-wider ${tx.status === 'completed' ? 'text-[#00D4AA]' :
-                                tx.status === 'failed' ? 'text-red-500' : 'text-yellow-500'
+                            tx.status === 'failed' ? 'text-red-500' : 'text-yellow-500'
                             }`}>
                             {tx.status}
                         </p>

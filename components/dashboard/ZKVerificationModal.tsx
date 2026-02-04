@@ -70,10 +70,10 @@ export function ZKVerificationModal({ isOpen, onOpenChange, onSuccess }: ZKVerif
                 curve: "bn128"
             };
 
-            // Mock Signals: [revenueThreshold, revenueCommitment]
-            // These must match the circuit public outputs
+            // Mock Signals: [isQualified, revenueCommitment]
+            // These must match the circuit public outputs. Contract expects input[0] == 1
             const mockPublicSignals = [
-                "100000", // Minimum Revenue Threshold
+                "1", // isQualified (Required by contract logic)
                 "0x1234567890abcdef1234567890abcdef12345678" // Commitment Hash
             ];
 
