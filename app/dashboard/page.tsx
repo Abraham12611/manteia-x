@@ -10,7 +10,7 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Plus } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useWriteContract } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 
 export default function DashboardPage() {
     const { userProfile, isProfileLoading } = useUserStore();
@@ -35,13 +35,57 @@ export default function DashboardPage() {
     // State for Verification Data
     const [proofData, setProofData] = useState<{ ipfsHash: string, publicSignals: any, proof: any } | null>(null);
 
+    const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
     const { writeContractAsync, isPending } = useWriteContract();
 
-    // Add wait logic for the transaction
-    /* 
-       Note: We can't easily wait for the specific tx hash here unless we store it in state, 
-       but writeContractAsync returns the hash. We can wait on that.
-    */
+    // Watch for transaction confirmation
+    const { isSuccess: isConfirmed, isLoading: isConfirming } = useWaitForTransactionReceipt({
+        hash: txHash,
+    });
+
+    // Handle Confirmation Success
+    useEffect(() => {
+        if (isConfirmed && txHash) {
+            console.log("Transaction Confirmed on Chain!", txHash);
+
+            // 1. Update Database Status to 'active' (or 'funded')
+            const updateStatus = async () => {
+                const { error } = await supabase
+                    .from('loans')
+                    .update({ status: 'active' }) // or 'funded' depending on schema
+                    .eq('tx_hash', txHash);
+
+                if (error) console.error("Failed to update loan status:", error);
+
+                // Update transaction record too if needed
+                await supabase
+                    .from('transactions')
+                    .update({ status: 'completed' })
+                    .eq('tx_hash', txHash);
+            };
+            updateStatus();
+
+            // 2. Success Notification with Explorer Link
+            toast.success("Lesson Funded Successfully!", {
+                description: (
+                    <a
+                        href={`https://sepolia.mantlescan.xyz/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-blue-400 hover:text-blue-300"
+                    >
+                        View on Mantle Explorer
+                    </a>
+                ),
+                duration: 8000,
+            });
+
+            // Reset state
+            setTxHash(undefined);
+            setProofData(null);
+            setIsZKModalOpen(false);
+        }
+    }, [isConfirmed, txHash]);
 
     const handleLoanRequest = async (amount: number, purpose: string, sector: string) => {
         if (!proofData) {
@@ -59,19 +103,8 @@ export default function DashboardPage() {
         try {
             console.log("Submitting Loan Request with Proof:", proofData);
 
-            // 1. Prepare Contract Arguments (Format SnarkJS Proof for Solidity)
+            // 1. Prepare Contract Arguments
             const { proof, publicSignals, ipfsHash } = proofData;
-
-            // Transform Proof to Solidity Format
-            // pi_a: [p[0], p[1]]
-            // pi_b: [[p[0][1], p[0][0]], [p[1][1], p[1][0]]] (Note the reverse for G2!)
-            // pi_c: [p[0], p[1]]
-
-            /* 
-               IMPORTANT: Real SnarkJS returns strings. 
-               If the mockProof above is used, ensure it is passed correctly.
-               For this implementation, we map the mock structure directly.
-            */
 
             const formattedProof = {
                 a: [proof.pi_a[0], proof.pi_a[1]] as [bigint, bigint],
@@ -86,12 +119,11 @@ export default function DashboardPage() {
             // 2. Call Contract
             toast.message("Please confirm transaction in your wallet...", { id: toastId });
 
-            // Import dynamically to avoid circular deps top-level if needed, or use existing imports
             const { ManteiaFactoryABI } = await import("@/lib/abis/ManteiaFactory");
             const { CONTRACT_ADDRESSES } = await import("@/lib/contracts");
             const { parseUnits } = await import("viem");
 
-            const txHash = await writeContractAsync({
+            const hash = await writeContractAsync({
                 address: CONTRACT_ADDRESSES.MANTEIA_FACTORY,
                 abi: ManteiaFactoryABI,
                 functionName: 'requestLoan',
@@ -100,18 +132,20 @@ export default function DashboardPage() {
                     formattedProof.b,
                     formattedProof.c,
                     formattedProof.input,
-                    parseUnits(amount.toString(), 6), // USDC has 6 decimals
+                    parseUnits(amount.toString(), 6),
                     ipfsHash
                 ]
             });
 
-            console.log("Transaction Submitted:", txHash);
-            toast.message("Transaction Sent! Waiting for confirmation...", { id: toastId });
+            console.log("Transaction Submitted:", hash);
+            setTxHash(hash); // Triggers the useWaitForTransactionReceipt hook
 
-            // 3. Insert into Supabase (Optimistic or wait for Indexer)
-            // For better UX, we save the intent now. The indexer/listener would update status later.
+            toast.message("Transaction Sent! Waiting for confirmation...", {
+                id: toastId,
+                description: "This may take a few seconds..."
+            });
 
-            // Calculate mocked risk score mostly for UI display in this demo
+            // 3. Insert Pending Record
             const estimatedRevenue = 100000;
             const ratio = (estimatedRevenue * 12) / amount;
             let riskScore = 70;
@@ -126,28 +160,23 @@ export default function DashboardPage() {
                 sector: sector,
                 risk_score: riskScore,
                 ipfs_hash: ipfsHash,
-                tx_hash: txHash,
+                tx_hash: hash,
                 status: 'pending'
             });
 
             if (error) throw error;
 
-            // 4. Transaction Record
             await supabase.from('transactions').insert({
                 user_address: userProfile.wallet_address,
                 type: 'loan_request',
                 amount: amount,
-                tx_hash: txHash,
-                status: 'pending' // Pending confirmation
+                tx_hash: hash,
+                status: 'pending'
             });
 
-            toast.success(`Loan Request Submitted!`, {
-                id: toastId,
-                description: "View status in Recent Activity"
-            });
-
-            // Clear proof data to force new verification next time? Maybe keep it.
-            // setProofData(null); 
+            // Keep toast loading until confirmation...
+            // or dismiss it now and let the success effect handle the final toast.
+            // We'll leave it as a message for now.
 
         } catch (err: any) {
             console.error("Loan Request Failed:", err);

@@ -37,7 +37,7 @@ export default function RootLayout({
         className={`${inter.variable} ${playfair.variable} ${robotoMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
-        <Toaster cancelButton={false} style={{ backgroundColor: '#1E222E', borderColor: '#252931', color: 'white' }} />
+        <Toaster closeButton cancelButton={false} style={{ backgroundColor: '#1E222E', borderColor: '#252931', color: 'white' }} />
       </body>
     </html>
   );
