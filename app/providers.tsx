@@ -50,6 +50,24 @@ const config = getDefaultConfig({
         },
     ],
     chains: [
+        {
+            id: 97,
+            name: 'BSC Testnet',
+            network: 'bsc-testnet',
+            nativeCurrency: {
+                decimals: 18,
+                name: 'BNB',
+                symbol: 'tBNB',
+            },
+            rpcUrls: {
+                default: { http: ['https://data-seed-pre-0-s1.bnbchain.org:8545'] },
+                public: { http: ['https://data-seed-pre-0-s1.bnbchain.org:8545'] },
+            },
+            blockExplorers: {
+                default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
+            },
+            testnet: true,
+        },
         mantleSepoliaTestnet, // Default for Dev
         mantle,
     ],

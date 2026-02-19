@@ -10,11 +10,20 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Plus } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { getContractAddresses, BSC_TESTNET_CHAIN_ID, MANTLE_SEPOLIA_CHAIN_ID } from "@/lib/contracts";
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
+
+const getExplorerLink = (chainId: number, hash: string) => {
+    if (chainId === BSC_TESTNET_CHAIN_ID) {
+        return `https://testnet.bscscan.com/tx/${hash}`;
+    }
+    return `https://sepolia.mantlescan.xyz/tx/${hash}`;
+};
 
 export default function DashboardPage() {
     const { userProfile, isProfileLoading } = useUserStore();
     const router = useRouter();
+    const chainId = useChainId();
 
     // Debugging Role
     useEffect(() => {
@@ -53,28 +62,31 @@ export default function DashboardPage() {
                 const { error } = await supabase
                     .from('loans')
                     .update({ status: 'active' }) // or 'funded' depending on schema
-                    .eq('tx_hash', txHash);
+                    .eq('tx_hash', txHash.toLowerCase());
 
                 if (error) console.error("Failed to update loan status:", error);
+                else console.log("Loan status updated to active via client-side listener");
 
                 // Update transaction record too if needed
                 await supabase
                     .from('transactions')
                     .update({ status: 'completed' })
-                    .eq('tx_hash', txHash);
+                    .eq('tx_hash', txHash.toLowerCase());
             };
             updateStatus();
 
             // 2. Success Notification with Explorer Link
+            const explorerUrl = getExplorerLink(chainId, txHash);
+
             toast.success("Lesson Funded Successfully!", {
                 description: (
                     <a
-                        href={`https://sepolia.mantlescan.xyz/tx/${txHash}`}
+                        href={explorerUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline text-blue-400 hover:text-blue-300"
                     >
-                        View on Mantle Explorer
+                        View on Explorer
                     </a>
                 ),
                 duration: 8000,
@@ -120,8 +132,10 @@ export default function DashboardPage() {
             toast.message("Please confirm transaction in your wallet...", { id: toastId });
 
             const { ManteiaFactoryABI } = await import("@/lib/abis/ManteiaFactory");
-            const { CONTRACT_ADDRESSES } = await import("@/lib/contracts");
+
             const { parseUnits } = await import("viem");
+
+            const CONTRACT_ADDRESSES = getContractAddresses(chainId);
 
             const hash = await writeContractAsync({
                 address: CONTRACT_ADDRESSES.MANTEIA_FACTORY,
@@ -140,9 +154,24 @@ export default function DashboardPage() {
             console.log("Transaction Submitted:", hash);
             setTxHash(hash); // Triggers the useWaitForTransactionReceipt hook
 
-            toast.message("Transaction Sent! Waiting for confirmation...", {
+            const explorerUrl = getExplorerLink(chainId, hash);
+
+            toast.message("Transaction Sent!", {
                 id: toastId,
-                description: "This may take a few seconds..."
+                description: (
+                    <div className="flex flex-col gap-1">
+                        <span>Waiting for confirmation...</span>
+                        <a
+                            href={explorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-blue-400 hover:text-blue-300 font-medium"
+                        >
+                            Verify Transaction ↗
+                        </a>
+                    </div>
+                ),
+                duration: 10000,
             });
 
             // 3. Insert Pending Record

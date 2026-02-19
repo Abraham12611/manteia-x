@@ -7,14 +7,16 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { Wallet, ArrowRight, Bank, CircleNotch } from "@phosphor-icons/react";
 import { formatCurrency } from "@/lib/utils";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { getContractAddresses } from "@/lib/contracts";
 import { MockUSDCABI } from "@/lib/abis/MockUSDC";
 import { LendingVaultABI } from "@/lib/abis/LendingVault";
 
 export function LiquidityManager() {
     const { address, isConnected } = useAccount();
+    const chainId = useChainId();
+    const CONTRACT_ADDRESSES = getContractAddresses(chainId);
     const [amount, setAmount] = useState<string>("");
 
     // --- Contract Reads ---
@@ -119,9 +121,9 @@ export function LiquidityManager() {
 
     // Error Handling
     useEffect(() => {
-        if (approveError) toast.error(`Approval Failed: ${approveError.shortMessage || approveError.message}`);
-        if (depositError) toast.error(`Deposit Failed: ${depositError.shortMessage || depositError.message}`);
-        if (mintError) toast.error(`Mint Failed: ${mintError.shortMessage || mintError.message}`);
+        if (approveError) toast.error(`Approval Failed: ${(approveError as any).shortMessage || approveError.message}`);
+        if (depositError) toast.error(`Deposit Failed: ${(depositError as any).shortMessage || depositError.message}`);
+        if (mintError) toast.error(`Mint Failed: ${(mintError as any).shortMessage || mintError.message}`);
     }, [approveError, depositError, mintError]);
 
 
@@ -181,13 +183,17 @@ export function LiquidityManager() {
                         <label className="text-sm font-medium text-[#D1D5DB]">Deposit Amount (USDC)</label>
                         {usdcBalance < 100 && (
                             <button
-                                onClick={() => writeMint({
-                                    address: CONTRACT_ADDRESSES.MOCK_USDC,
-                                    abi: MockUSDCABI,
-                                    functionName: 'mint',
-                                    args: [address, parseUnits('10000', 6)]
-                                })}
-                                disabled={isMinting}
+                                onClick={() => {
+                                    if (address) {
+                                        writeMint({
+                                            address: CONTRACT_ADDRESSES.MOCK_USDC,
+                                            abi: MockUSDCABI,
+                                            functionName: 'mint',
+                                            args: [address, parseUnits('10000', 6)]
+                                        });
+                                    }
+                                }}
+                                disabled={isMinting || !address}
                                 className="text-[10px] bg-[#00D4AA]/10 text-[#00D4AA] px-2 py-1 rounded hover:bg-[#00D4AA]/20 transition-colors"
                             >
                                 {isMinting ? "Minting..." : "+ Faucet: 10k USDC"}

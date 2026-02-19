@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract, useChainId } from "wagmi";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Spinner } from "@phosphor-icons/react";
@@ -29,6 +29,7 @@ interface Transaction {
 
 export default function LoanHistoryPage() {
     const { address } = useAccount();
+    const chainId = useChainId();
     const [loans, setLoans] = useState<Loan[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -43,8 +44,10 @@ export default function LoanHistoryPage() {
             console.log("Repaying Loan:", loanId, "Amount:", amount);
 
             // 1. Send USDC Transfer Transaction
-            const { CONTRACT_ADDRESSES } = await import("@/lib/contracts");
+            const { getContractAddresses } = await import("@/lib/contracts");
             const { parseUnits } = await import("viem");
+
+            const CONTRACT_ADDRESSES = getContractAddresses(chainId);
 
             // Standard ERC20 Transfer ABI
             const erc20Abi = [
